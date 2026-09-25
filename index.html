@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kupon Takip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0a1020;
+    --panel: #111a2f;
+    --panel-2: #172340;
+    --line: #25335a;
+    --ink: #e8ecf6;
+    --muted: #8e9ab8;
+    --gold: #f4c518;
+    --gold-ink: #1a1400;
+    --good: #3ecf8e;
+    --bad: #ff6b6b;
+    --live: #ff4d4d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 15px/1.5 Barlow, system-ui, sans-serif;
+    padding-inline: 16px;
+    padding-block: max(20px, env(safe-area-inset-top)) 40px;
+  }
+  .wrap { max-width: 580px; margin: 0 auto; display: grid; gap: 16px; }
+  h1, .cond-state, .mscore, .summary, .section-title { font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+  h1 span { color: var(--gold); }
+  .demo { background: var(--panel-2); border: 1px dashed var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 14px; color: var(--muted); }
+  .demo b { color: var(--gold); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .section-title { margin: 0 0 10px; font-size: 14px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+  textarea {
+    width: 100%; min-height: 130px; resize: vertical; font: 14px/1.5 ui-monospace, Consolas, monospace;
+    color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  }
+  .hint { color: var(--muted); font-size: 13px; margin: 8px 0 12px; }
+  .hint code { color: var(--gold); font-size: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button.btn, input[type=search] {
+    font: inherit; color: var(--ink); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; min-width: 0;
+  }
+  button.btn { cursor: pointer; font-weight: 600; }
+  button.primary { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+  input[type=search] { flex: 1 1 180px; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .link { background: none; border: 0; color: var(--gold); cursor: pointer; font: inherit; font-size: 14px; padding: 0; }
+  .error { color: var(--bad); font-size: 14px; }
+
+  .summary { font-size: 22px; font-weight: 700; }
+  .summary.win { color: var(--good); }
+  .summary.lost { color: var(--bad); }
+
+  /* maç kartı */
+  .matches { display: grid; gap: 14px; }
+  .mhead { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  .mteams { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-weight: 600; font-size: 17px; }
+  .mscore { font-size: 26px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .mleague { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 99px; background: var(--panel-2); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 14px; }
+  .pill.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--live); animation: blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  .conds { display: grid; gap: 8px; margin-top: 12px; }
+  .cond { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; }
+  .cond-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .cond-name { font-weight: 600; }
+  .cond-state { font-size: 19px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .todo .cond-state { color: var(--gold); }
+  .done .cond-state { color: var(--good); }
+  .fail .cond-state { color: var(--bad); }
+  .off .cond-state, .off .cond-name { color: var(--muted); }
+  .bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--gold); border-radius: 99px; transition: width .6s ease; }
+  .done .bar i { background: var(--good); }
+  .fail .bar i { background: var(--bad); }
+  .cond-sub { color: var(--muted); font-size: 13px; }
+
+  .pick { margin-top: 12px; display: grid; gap: 8px; }
+  .list { display: grid; gap: 6px; max-height: 280px; overflow-y: auto; }
+  .match-item {
+    text-align: left; width: 100%; background: var(--panel-2); border: 1px solid transparent; border-radius: 8px;
+    padding: 8px 12px; color: var(--ink); cursor: pointer; font: inherit;
+    display: grid; grid-template-columns: 50px 1fr; gap: 10px; align-items: center;
+  }
+  .match-item:hover { border-color: var(--gold); }
+  .match-item small { display: block; color: var(--muted); font-size: 12px; }
+  .match-item .t { color: var(--gold); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
+  @media (prefers-reduced-motion: reduce) { .pill.live::before { animation: none; } .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Kupon <span>Takip</span></h1>
+
+  <div class="demo" id="demo" hidden>
+    <b>Deneme modu:</b> Bu sayfa gerçek API'ye bağlı değil. Maçlar ve sayılar örnek, birkaç saniyede bir kendiliğinden ilerliyor.
+  </div>
+
+  <section class="panel" id="paste">
+    <h2 class="section-title">Kuponu yapıştır</h2>
+    <textarea id="text" spellcheck="false" placeholder="Tarih: 2026-09-26&#10;Türkiye - Fransa | Türkiye gol 2 | Toplam sarı kart 5 | Toplam korner 7&#10;Fenerbahçe - Galatasaray | MS 1 | Toplam gol en fazla 2"></textarea>
+    <p class="hint">Her satır bir maç: <code>Ev - Deplasman | tahmin | tahmin</code>. Tahminler: <code>Toplam gol 3</code>, <code>Ev sarı kart 2</code>, <code>Deplasman korner 4</code>, <code>Toplam gol en fazla 2</code>, <code>MS 1 / X / 2</code>, <code>KG Var</code>.</p>
+    <div class="row">
+      <button class="btn primary" id="loadCoupon">Kuponu yükle</button>
+      <span class="error" id="parseErr" hidden></span>
+    </div>
+  </section>
+
+  <section class="panel" id="board" hidden>
+    <div class="row" style="justify-content:space-between">
+      <div class="summary" id="summary"></div>
+      <button class="link" id="newCoupon">Yeni kupon</button>
+    </div>
+    <div class="error" id="liveErr" hidden style="margin-top:8px"></div>
+  </section>
+
+  <div class="matches" id="matches"></div>
+
+  <div class="foot" id="foot" hidden>
+    <span id="updated"></span>
+    <button class="btn" id="refresh">Şimdi yenile</button>
+  </div>
+</div>
+
+<script>
+const LIVE = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE', 'INT', 'SUSP'];
+const DONE = ['FT', 'AET', 'PEN', 'AWD', 'WO', 'CANC', 'ABD'];
+const METRIC = { goals: 'gol', yellow: 'sarı kart', corners: 'korner' };
+const REFRESH_MS = 120000; // 2 dakikada bir, tüm maçlar TEK istekte
+
+const $ = id => document.getElementById(id);
+let coupon = null;          // { date, matches: [{ home, away, fixtureId, conds, live }] }
+let dayList = null, remaining = null, timer = null, demo = false;
+
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem('kupon-v2')); } catch (e) { return null; } },
+  set(v) { if (demo) return; try { localStorage.setItem('kupon-v2', JSON.stringify(v)); } catch (e) {} },
+};
+function today() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+function hhmm(iso) { return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); }
+
+async function api(path) {
+  const r = await fetch(path);
+  const body = await r.json().catch(() => { throw new Error('Sunucuya ulaşılamadı.'); });
+  if (!r.ok) throw new Error(body.error || 'Sunucu hatası');
+  return body;
+}
+
+/* ---------- isim eşleştirme ---------- */
+const ALIAS = {
+  turkiye: ['turkey', 'turkiye'], fransa: ['france'], almanya: ['germany'], ispanya: ['spain'], italya: ['italy'],
+  ingiltere: ['england'], hollanda: ['netherlands'], portekiz: ['portugal'], belcika: ['belgium'], hirvatistan: ['croatia'],
+  isvicre: ['switzerland'], avusturya: ['austria'], yunanistan: ['greece'], gurcistan: ['georgia'], macaristan: ['hungary'],
+  polonya: ['poland'], danimarka: ['denmark'], isvec: ['sweden'], norvec: ['norway'], iskocya: ['scotland'], galler: ['wales'],
+  arjantin: ['argentina'], brezilya: ['brazil'], sirbistan: ['serbia'], romanya: ['romania'], ukrayna: ['ukraine'],
+  bayernmunih: ['bayernmunich', 'bayernmunchen'], inter: ['inter', 'intermilan'],
+};
+function norm(s) {
+  return (s || '').toLocaleLowerCase('tr').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i').replace(/ö/g, 'o')
+    .replace(/ş/g, 's').replace(/ü/g, 'u').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\b(fc|sk|jk|as|ac|afc|cf|sc|fk)\b/g, '').replace(/[^a-z0-9]/g, '');
+}
+function sameTeam(a, b) {
+  const x = norm(a), y = norm(b);
+  if (!x || !y) return false;
+  if (x.includes(y) || y.includes(x)) return true;
+  return (ALIAS[x] || []).some(v => y.includes(v)) || (ALIAS[y] || []).some(v => x.includes(v));
+}
+
+/* ---------- kupon metnini okuma ---------- */
+function parseCoupon(text) {
+  let date = today();
+  const matches = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const dm = line.match(/^tarih\s*:\s*(.+)$/i);
+    if (dm) {
+      const v = dm[1].trim();
+      let m;
+      if ((m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/))) date = v;
+      else if ((m = v.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/))) date = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      continue;
+    }
+    const parts = line.split('|').map(s => s.trim()).filter(Boolean);
+    const teams = parts[0].split(/\s+[-–]\s+/);
+    if (teams.length !== 2) throw new Error(`Bu satırda maç bulunamadı: "${line}". Takımları "Ev - Deplasman" diye yaz.`);
+    const match = { home: teams[0].trim(), away: teams[1].trim(), fixtureId: null, conds: [], live: null };
+    parts.slice(1).forEach(p => match.conds.push(...parseCond(p, match)));
+    matches.push(match);
+  }
+  if (!matches.length) throw new Error('Kupon boş görünüyor.');
+  return { date, matches };
+}
+
+function parseCond(text, match) {
+  const t = text.toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim();
+  let m;
+  if ((m = t.match(/^(ms|sonuç|sonuc)\s*(1|x|0|2)$/))) return [{ metric: 'result', value: m[2] === '0' ? 'X' : m[2].toUpperCase(), text }];
+  if (/^kg\s*var$/.test(t)) return [
+    { metric: 'goals', side: 'home', op: 'min', target: 1, text: `${match.home} gol atar` },
+    { metric: 'goals', side: 'away', op: 'min', target: 1, text: `${match.away} gol atar` },
+  ];
+  m = t.match(/^(.*?)\s*(gol|sarı kart|sari kart|kart|korner)\s+(en fazla\s+|en az\s+)?(\d+)$/);
+  if (m) {
+    const who = m[1].trim();
+    let side = null;
+    if (!who || who === 'toplam') side = 'total';
+    else if (who === 'ev' || who === 'ev sahibi' || sameTeam(who, match.home)) side = 'home';
+    else if (who === 'deplasman' || who === 'dep' || sameTeam(who, match.away)) side = 'away';
+    const metric = m[2] === 'gol' ? 'goals' : m[2] === 'korner' ? 'corners' : 'yellow';
+    if (side) return [{ metric, side, op: m[3] && m[3].startsWith('en fazla') ? 'max' : 'min', target: +m[4], text }];
+  }
+  return [{ metric: 'unknown', text }];
+}
+
+function condLabel(c, match) {
+  if (c.metric === 'unknown') return c.text;
+  if (c.metric === 'result') return `MS ${c.value} (${c.value === '1' ? match.home + ' kazanır' : c.value === '2' ? match.away + ' kazanır' : 'beraberlik'})`;
+  if (c.text && /gol atar$/.test(c.text)) return c.text;
+  const who = c.side === 'total' ? 'Toplam' : match[c.side];
+  return `${who} ${c.op === 'max' ? 'en fazla' : 'en az'} ${c.target} ${METRIC[c.metric]}`;
+}
+
+/* ---------- koşul değerlendirme ---------- */
+function evaluate(c, live) {
+  if (c.metric === 'unknown') return { cls: 'off', state: 'Takip edilemiyor', sub: 'Bu tahmin türünü henüz tanımıyorum.', pct: 0 };
+  if (!live) return { cls: 'todo', state: '…', sub: 'Maç bilgisi bekleniyor', pct: 0 };
+  const v = live.values, over = DONE.includes(live.status), started = over || LIVE.includes(live.status);
+  if (c.metric === 'result') {
+    const now = v.goals.home > v.goals.away ? '1' : v.goals.home < v.goals.away ? '2' : 'X';
+    if (over) return now === c.value ? { cls: 'done', state: '✓ Tuttu', sub: `Maç ${v.goals.home}-${v.goals.away} bitti`, pct: 100 }
+                                      : { cls: 'fail', state: '✗ Yattı', sub: `Maç ${v.goals.home}-${v.goals.away} bitti`, pct: 100 };
+    if (!started) return { cls: 'todo', state: 'Başlamadı', sub: '', pct: 0 };
+    return now === c.value ? { cls: 'todo', state: 'Şu an tutuyor', sub: `Skor ${v.goals.home}-${v.goals.away}`, pct: 100 }
+                           : { cls: 'todo', state: 'Şu an tutmuyor', sub: `Skor ${v.goals.home}-${v.goals.away}`, pct: 0 };
+  }
+  const cur = c.side === 'total' ? v[c.metric].home + v[c.metric].away : v[c.metric][c.side];
+  if (c.op === 'max') {
+    if (cur > c.target) return { cls: 'fail', state: '✗ Yattı', sub: `Sınır ${c.target}, oldu ${cur}`, pct: 100 };
+    if (over) return { cls: 'done', state: '✓ Tuttu', sub: `Maç ${cur} ile bitti`, pct: 100 };
+    const room = c.target - cur;
+    return { cls: 'todo', state: room === 0 ? 'Sınırda!' : `${room} hak var`, sub: `Şu an ${cur} · ${c.target + 1}. olursa yatar`, pct: cur / (c.target + 1) * 100 };
+  }
+  if (cur >= c.target) return { cls: 'done', state: '✓ Tuttu', sub: `Şu an ${cur} / ${c.target}`, pct: 100 };
+  if (over) return { cls: 'fail', state: '✗ Yattı', sub: `Maç ${cur} ile bitti, ${c.target} lazımdı`, pct: cur / c.target * 100 };
+  return { cls: 'todo', state: `${c.target - cur} kaldı`, sub: `Şu an ${cur} / ${c.target}`, pct: cur / c.target * 100 };
+}
+
+/* ---------- akış ---------- */
+$('loadCoupon').onclick = async () => {
+  $('parseErr').hidden = true;
+  try { coupon = parseCoupon($('text').value); }
+  catch (e) { $('parseErr').textContent = e.message; $('parseErr').hidden = false; return; }
+  dayList = null;
+  if (!demo) await matchFixtures();
+  store.set(coupon);
+  showBoard();
+  refresh();
+};
+
+$('newCoupon').onclick = () => {
+  clearTimeout(timer); coupon = null; store.set(null);
+  $('paste').hidden = false; $('board').hidden = true; $('foot').hidden = true; $('matches').innerHTML = '';
+};
+$('refresh').onclick = () => refresh();
+
+async function getDayList() {
+  if (dayList) return dayList;
+  const d = await api('/api/matches?date=' + coupon.date);
+  remaining = d.remaining;
+  dayList = d.matches;
+  return dayList;
+}
+
+async function matchFixtures() {
+  try {
+    const list = await getDayList();
+    coupon.matches.forEach(m => {
+      const f = list.find(x => sameTeam(m.home, x.home) && sameTeam(m.away, x.away))
+             || list.find(x => sameTeam(m.home, x.away) && sameTeam(m.away, x.home));
+      if (f) m.fixtureId = f.id;
+    });
+  } catch (e) {
+    $('liveErr').textContent = 'Günün maç listesi alınamadı: ' + e.message; $('liveErr').hidden = false;
+  }
+}
+
+function showBoard() {
+  $('paste').hidden = true; $('board').hidden = false; $('foot').hidden = false;
+  render();
+}
+
+async function refresh() {
+  clearTimeout(timer);
+  if (!coupon) return;
+  if (demo) demoStep();
+  else {
+    const ids = coupon.matches.map(m => m.fixtureId).filter(Boolean);
+    if (ids.length) {
+      try {
+        const d = await api('/api/match?ids=' + ids.join('-'));
+        remaining = d.remaining;
+        d.matches.forEach(l => { const m = coupon.matches.find(x => x.fixtureId === l.id); if (m) m.live = l; });
+        $('liveErr').hidden = true;
+      } catch (e) { $('liveErr').textContent = 'Güncellenemedi: ' + e.message; $('liveErr').hidden = false; }
+    }
+  }
+  render();
+  const lives = coupon.matches.filter(m => m.live && LIVE.includes(m.live.status)).length;
+  const waiting = coupon.matches.some(m => m.fixtureId && (!m.live || !DONE.includes(m.live.status)));
+  const wait = demo ? 3000 : lives ? REFRESH_MS : waiting ? 600000 : null;
+  if (wait) timer = setTimeout(refresh, wait);
+}
+
+/* ---------- çizim ---------- */
+function render() {
+  const box = $('matches');
+  box.innerHTML = '';
+  let total = 0, ok = 0, bad = 0;
+  coupon.matches.forEach((m, mi) => {
+    const L = m.live, card = document.createElement('section');
+    card.className = 'panel';
+    const isLive = L && LIVE.includes(L.status), isDone = L && DONE.includes(L.status);
+    card.innerHTML = `<div class="mhead"><div><div class="mteams"><span class="h"></span><span class="mscore"></span><span class="a"></span></div>
+      <div class="mleague"></div></div><span class="pill"></span></div><div class="conds"></div>`;
+    card.querySelector('.h').textContent = L ? L.home : m.home;
+    card.querySelector('.a').textContent = L ? L.away : m.away;
+    card.querySelector('.mscore').textContent = L && (isLive || isDone) ? `${L.values.goals.home}–${L.values.goals.away}` : 'vs';
+    card.querySelector('.mleague').textContent = L ? L.league : m.fixtureId ? '' : 'Bu maçı listede bulamadım';
+    const pill = card.querySelector('.pill');
+    pill.className = 'pill' + (isLive ? ' live' : '');
+    pill.textContent = !L ? (m.fixtureId ? '…' : '?') : isLive ? (L.status === 'HT' ? 'Devre arası' : `${L.minute || 0}'`) : isDone ? 'Bitti' : hhmm(L.time);
+
+    const conds = card.querySelector('.conds');
+    m.conds.forEach(c => {
+      const r = evaluate(c, L);
+      if (c.metric !== 'unknown') { total++; if (r.cls === 'done') ok++; if (r.cls === 'fail') bad++; }
+      const el = document.createElement('div');
+      el.className = 'cond ' + r.cls;
+      el.innerHTML = `<div class="cond-top"><span class="cond-name"></span><span class="cond-state"></span></div>
+        <div class="bar"><i></i></div><div class="cond-sub"></div>`;
+      el.querySelector('.cond-name').textContent = condLabel(c, m);
+      el.querySelector('.cond-state').textContent = r.state;
+      el.querySelector('.bar i').style.width = Math.max(0, Math.min(100, r.pct)) + '%';
+      el.querySelector('.cond-sub').textContent = r.sub;
+      conds.appendChild(el);
+    });
+    if (L && !L.hasStats && isLive && m.conds.some(c => c.metric === 'yellow' || c.metric === 'corners')) {
+      const w = document.createElement('div'); w.className = 'cond-sub';
+      w.textContent = 'Bu maç için kart ve korner verisi gelmiyor. Bazı liglerde API bu istatistikleri vermiyor.';
+      conds.appendChild(w);
+    }
+    if (!m.fixtureId && !demo) card.appendChild(pickerFor(m));
+    box.appendChild(card);
+  });
+
+  const s = $('summary');
+  s.className = 'summary' + (bad ? ' lost' : total && ok === total ? ' win' : '');
+  s.textContent = bad ? `Kupon yattı · ${bad} tahmin tutmadı` : total && ok === total ? 'Kupon tuttu! 🎉' : `${total} tahminden ${ok} tanesi tuttu`;
+
+  const t = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  $('updated').textContent = demo ? `Deneme verisi · ${t}` :
+    `Son güncelleme ${t}` + (remaining != null ? ` · Bugün kalan istek: ${remaining}` : '');
+}
+
+function pickerFor(m) {
+  const wrap = document.createElement('div');
+  wrap.className = 'pick';
+  wrap.innerHTML = `<div class="row"><input type="search" placeholder="Takım ara"><button class="btn">Listeden seç</button></div><div class="list"></div>`;
+  const input = wrap.querySelector('input'), list = wrap.querySelector('.list');
+  input.value = m.home;
+  const show = async () => {
+    list.innerHTML = '<small style="color:var(--muted)">Yükleniyor…</small>';
+    let all;
+    try { all = await getDayList(); } catch (e) { list.innerHTML = ''; list.textContent = e.message; return; }
+    const q = norm(input.value);
+    const hits = all.filter(x => !q || norm(x.home + x.away + x.league).includes(q)
+      || sameTeam(input.value, x.home) || sameTeam(input.value, x.away)).slice(0, 40);
+    list.innerHTML = hits.length ? '' : '<small style="color:var(--muted)">Bu tarihte maç bulunamadı.</small>';
+    hits.forEach(x => {
+      const b = document.createElement('button');
+      b.className = 'match-item';
+      b.innerHTML = '<span class="t"></span><span><span class="n"></span><small></small></span>';
+      b.querySelector('.t').textContent = LIVE.includes(x.status) ? `${x.minute || ''}'` : DONE.includes(x.status) ? 'Bitti' : hhmm(x.time);
+      b.querySelector('.n').textContent = `${x.home} – ${x.away}`;
+      b.querySelector('small').textContent = `${x.country} · ${x.league}`;
+      b.onclick = () => { m.fixtureId = x.id; store.set(coupon); render(); refresh(); };
+      list.appendChild(b);
+    });
+  };
+  wrap.querySelector('button').onclick = show;
+  input.onkeydown = e => { if (e.key === 'Enter') show(); };
+  return wrap;
+}
+
+/* ---------- deneme modu ---------- */
+const DEMO_TEXT = `Tarih: ${today()}
+Türkiye - Fransa | Türkiye gol 2 | Toplam sarı kart 5 | Toplam korner 7
+Fenerbahçe - Galatasaray | MS 1 | Toplam gol en fazla 2`;
+
+function demoStep() {
+  coupon.matches.forEach((m, i) => {
+    if (!m.live) {
+      m.live = i === 0
+        ? { status: '2H', minute: 58, time: new Date().toISOString(), league: 'Örnek maç', hasStats: true,
+            home: m.home, away: m.away, values: { goals: { home: 1, away: 0 }, yellow: { home: 1, away: 1 }, corners: { home: 2, away: 1 } } }
+        : { status: '1H', minute: 21, time: new Date().toISOString(), league: 'Örnek maç', hasStats: true,
+            home: m.home, away: m.away, values: { goals: { home: 0, away: 0 }, yellow: { home: 0, away: 1 }, corners: { home: 1, away: 2 } } };
+      return;
+    }
+    const L = m.live;
+    if (!LIVE.includes(L.status)) return;
+    L.minute++;
+    if (L.minute === 46 && L.status === '1H') L.status = '2H';
+    const v = L.values, side = () => Math.random() < .5 ? 'home' : 'away';
+    if (Math.random() < .25) v.corners[side()]++;
+    if (Math.random() < .12) v.yellow[side()]++;
+    if (Math.random() < .04) v.goals[side()]++;
+    if (L.minute >= 90) L.status = 'FT';
+  });
+}
+
+async function boot() {
+  try {
+    const r = await fetch('/api/match?ids=yokla'); // sunucu var mı? API hakkı harcamaz
+    if (!(r.headers.get('content-type') || '').includes('json')) throw new Error();
+  } catch (e) { demo = true; }
+
+  if (demo) {
+    $('demo').hidden = false;
+    $('text').value = DEMO_TEXT;
+    $('loadCoupon').click();
+    return;
+  }
+  const saved = store.get();
+  if (saved && saved.matches) { coupon = saved; coupon.matches.forEach(m => m.live = null); showBoard(); refresh(); }
+}
+boot();
+</script>
+</body>
+</html>
