@@ -139,11 +139,13 @@
 const LIVE = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE', 'INT', 'SUSP'];
 const DONE = ['FT', 'AET', 'PEN', 'AWD', 'WO', 'CANC', 'ABD'];
 const METRIC = { goals: 'gol', yellow: 'sarı kart', corners: 'korner' };
-const REFRESH_MS = 120000; // 2 dakikada bir, tüm maçlar TEK istekte
+// Her canlı maç her yenilemede 1 istek harcar. Günlük 100 hakka sığmak için
+// aralık maç sayısıyla uzar: 1 maç 2 dk, 4 maç 5 dk.
+function refreshMs(liveCount) { return Math.max(120000, liveCount * 75000); }
 
 const $ = id => document.getElementById(id);
 let coupon = null;          // { date, matches: [{ home, away, fixtureId, conds, live }] }
-let dayList = null, remaining = null, timer = null, demo = false;
+let dayList = null, remaining = null, timer = null, demo = false, nextInfo = '';
 
 const store = {
   get() { try { return JSON.parse(localStorage.getItem('kupon-v2')); } catch (e) { return null; } },
@@ -309,7 +311,8 @@ async function refresh() {
   if (!coupon) return;
   if (demo) demoStep();
   else {
-    const ids = coupon.matches.map(m => m.fixtureId).filter(Boolean);
+    // biten maçlar için istek harcama
+    const ids = coupon.matches.filter(m => m.fixtureId && !(m.live && DONE.includes(m.live.status))).map(m => m.fixtureId);
     if (ids.length) {
       try {
         const d = await api('/api/match?ids=' + ids.join('-'));
@@ -322,7 +325,9 @@ async function refresh() {
   render();
   const lives = coupon.matches.filter(m => m.live && LIVE.includes(m.live.status)).length;
   const waiting = coupon.matches.some(m => m.fixtureId && (!m.live || !DONE.includes(m.live.status)));
-  const wait = demo ? 3000 : lives ? REFRESH_MS : waiting ? 600000 : null;
+  const wait = demo ? 3000 : lives ? refreshMs(lives) : waiting ? 600000 : null;
+  nextInfo = lives && !demo ? ` · ${Math.round(wait / 60000)} dakikada bir yenilenir` : '';
+  render();
   if (wait) timer = setTimeout(refresh, wait);
 }
 
@@ -374,7 +379,7 @@ function render() {
 
   const t = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   $('updated').textContent = demo ? `Deneme verisi · ${t}` :
-    `Son güncelleme ${t}` + (remaining != null ? ` · Bugün kalan istek: ${remaining}` : '');
+    `Son güncelleme ${t}` + (remaining != null ? ` · Bugün kalan istek: ${remaining}` : '') + nextInfo;
 }
 
 function pickerFor(m) {

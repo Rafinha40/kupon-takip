@@ -1,5 +1,5 @@
 // Bir veya birden fazla maçın canlı durumu: skor, dakika, sarı kart ve korner.
-// /api/match?ids=123-456-789  (en fazla 20 maç, hepsi TEK istekle)
+// /api/match?ids=123-456-789  (en fazla 20 maç, her maç 1 istek harcar)
 const { callApi, send } = require('./_football');
 
 function stat(block, type) {
@@ -35,8 +35,11 @@ module.exports = async (req, res) => {
     const ids = url.searchParams.get('ids') || '';
     if (!/^\d+(-\d+){0,19}$/.test(ids)) return send(res, 400, { error: 'Geçersiz maç numarası.' });
 
-    const { data, remaining } = await callApi(`/fixtures?ids=${ids}&timezone=Europe/Istanbul`);
-    send(res, 200, { matches: (data.response || []).map(toMatch), remaining }, 60);
+    // Ücretsiz plan "ids" parametresine izin vermiyor: her maçı ayrı istekle çekiyoruz.
+    const results = await Promise.all(ids.split('-').map(id => callApi(`/fixtures?id=${id}&timezone=Europe/Istanbul`)));
+    const matches = results.flatMap(r => (r.data.response || []).map(toMatch));
+    const left = results.map(r => r.remaining).filter(x => x != null);
+    send(res, 200, { matches, remaining: left.length ? Math.min(...left) : null }, 60);
   } catch (e) {
     send(res, e.status || 500, { error: e.message });
   }
